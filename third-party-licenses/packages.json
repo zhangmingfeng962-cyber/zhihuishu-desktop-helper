@@ -1,0 +1,444 @@
+[
+  {
+    "name": "altgraph",
+    "version": "0.17.5",
+    "license": "MIT",
+    "files": [
+      "altgraph/LICENSE"
+    ]
+  },
+  {
+    "name": "anyio",
+    "version": "4.16.0",
+    "license": "MIT",
+    "files": [
+      "anyio/licenses/LICENSE"
+    ]
+  },
+  {
+    "name": "certifi",
+    "version": "2026.10.23",
+    "license": "MPL-2.0",
+    "files": [
+      "certifi/licenses/LICENSE"
+    ]
+  },
+  {
+    "name": "charset-normalizer",
+    "version": "3.5.2",
+    "license": "MIT",
+    "files": [
+      "charset-normalizer/licenses/LICENSE"
+    ]
+  },
+  {
+    "name": "colorama",
+    "version": "0.4.6",
+    "license": "",
+    "files": [
+      "colorama/licenses/LICENSE.txt"
+    ]
+  },
+  {
+    "name": "colorlog",
+    "version": "6.12.0",
+    "license": "MIT License",
+    "files": [
+      "colorlog/licenses/LICENSE"
+    ]
+  },
+  {
+    "name": "flatbuffers",
+    "version": "25.12.19",
+    "license": "Apache 2.0",
+    "files": []
+  },
+  {
+    "name": "h11",
+    "version": "0.16.0",
+    "license": "MIT",
+    "files": [
+      "h11/licenses/LICENSE.txt"
+    ]
+  },
+  {
+    "name": "httpcore",
+    "version": "1.0.9",
+    "license": "BSD-3-Clause",
+    "files": [
+      "httpcore/licenses/LICENSE.md"
+    ]
+  },
+  {
+    "name": "httpx",
+    "version": "0.28.1",
+    "license": "BSD-3-Clause",
+    "files": [
+      "httpx/licenses/LICENSE.md"
+    ]
+  },
+  {
+    "name": "idna",
+    "version": "3.20",
+    "license": "BSD-3-Clause",
+    "files": [
+      "idna/licenses/LICENSE.md"
+    ]
+  },
+  {
+    "name": "iniconfig",
+    "version": "2.3.1",
+    "license": "MIT",
+    "files": [
+      "iniconfig/licenses/LICENSE"
+    ]
+  },
+  {
+    "name": "jaraco.classes",
+    "version": "3.4.0",
+    "license": "",
+    "files": [
+      "jaraco.classes/LICENSE"
+    ]
+  },
+  {
+    "name": "jaraco.context",
+    "version": "6.1.2",
+    "license": "MIT",
+    "files": [
+      "jaraco.context/licenses/LICENSE"
+    ]
+  },
+  {
+    "name": "jaraco.functools",
+    "version": "4.6.0",
+    "license": "MIT",
+    "files": [
+      "jaraco.functools/licenses/LICENSE"
+    ]
+  },
+  {
+    "name": "keyring",
+    "version": "25.7.0",
+    "license": "MIT",
+    "files": [
+      "keyring/licenses/LICENSE"
+    ]
+  },
+  {
+    "name": "more-itertools",
+    "version": "11.2.1",
+    "license": "MIT",
+    "files": [
+      "more-itertools/licenses/LICENSE"
+    ]
+  },
+  {
+    "name": "MouseInfo",
+    "version": "0.1.3",
+    "license": "GPLv3+",
+    "files": []
+  },
+  {
+    "name": "numpy",
+    "version": "2.5.4",
+    "license": "BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0",
+    "files": [
+      "numpy/licenses/LICENSE.txt",
+      "numpy/licenses/numpy/_core/include/numpy/libdivide/LICENSE.txt",
+      "numpy/licenses/numpy/_core/src/common/pythoncapi-compat/COPYING",
+      "numpy/licenses/numpy/_core/src/highway/LICENSE",
+      "numpy/licenses/numpy/_core/src/npysort/x86-simd-sort/LICENSE.md",
+      "numpy/licenses/numpy/_core/src/umath/svml/LICENSE",
+      "numpy/licenses/numpy/fft/pocketfft/LICENSE.md",
+      "numpy/licenses/numpy/linalg/lapack_lite/LICENSE.txt",
+      "numpy/licenses/numpy/ma/LICENSE",
+      "numpy/licenses/numpy/random/LICENSE.md",
+      "numpy/licenses/numpy/random/src/distributions/LICENSE.md",
+      "numpy/licenses/numpy/random/src/mt19937/LICENSE.md",
+      "numpy/licenses/numpy/random/src/pcg64/LICENSE.md",
+      "numpy/licenses/numpy/random/src/philox/LICENSE.md",
+      "numpy/licenses/numpy/random/src/sfc64/LICENSE.md",
+      "numpy/licenses/numpy/random/src/splitmix64/LICENSE.md"
+    ]
+  },
+  {
+    "name": "omegaconf",
+    "version": "2.4.0",
+    "license": "",
+    "files": [
+      "omegaconf/licenses/ATTRIBUTION/LICENSE-antlr4",
+      "omegaconf/licenses/LICENSE"
+    ]
+  },
+  {
+    "name": "onnxruntime",
+    "version": "1.32.0",
+    "license": "MIT License",
+    "files": []
+  },
+  {
+    "name": "opencv-python",
+    "version": "4.14.0.94",
+    "license": "Apache 2.0",
+    "files": [
+      "opencv-python/LICENSE-3RD-PARTY.txt",
+      "opencv-python/LICENSE.txt"
+    ]
+  },
+  {
+    "name": "packaging",
+    "version": "26.3",
+    "license": "Apache-2.0 OR BSD-2-Clause",
+    "files": [
+      "packaging/licenses/LICENSE",
+      "packaging/licenses/LICENSE.APACHE",
+      "packaging/licenses/LICENSE.BSD"
+    ]
+  },
+  {
+    "name": "pefile",
+    "version": "2024.8.26",
+    "license": "MIT",
+    "files": [
+      "pefile/LICENSE"
+    ]
+  },
+  {
+    "name": "pillow",
+    "version": "12.3.0",
+    "license": "MIT-CMU",
+    "files": [
+      "pillow/licenses/LICENSE"
+    ]
+  },
+  {
+    "name": "pip",
+    "version": "25.0.1",
+    "license": "MIT",
+    "files": [
+      "pip/AUTHORS.txt",
+      "pip/LICENSE.txt"
+    ]
+  },
+  {
+    "name": "pluggy",
+    "version": "1.7.0",
+    "license": "MIT",
+    "files": [
+      "pluggy/licenses/LICENSE"
+    ]
+  },
+  {
+    "name": "protobuf",
+    "version": "7.36.2",
+    "license": "3-Clause BSD License",
+    "files": [
+      "protobuf/LICENSE"
+    ]
+  },
+  {
+    "name": "PyAutoGUI",
+    "version": "0.9.54",
+    "license": "BSD",
+    "files": [
+      "PyAutoGUI/licenses/AUTHORS.txt",
+      "PyAutoGUI/licenses/LICENSE.txt"
+    ]
+  },
+  {
+    "name": "pyclipper",
+    "version": "1.4.0",
+    "license": "MIT",
+    "files": [
+      "pyclipper/licenses/LICENSE"
+    ]
+  },
+  {
+    "name": "PyGetWindow",
+    "version": "0.0.9",
+    "license": "BSD",
+    "files": []
+  },
+  {
+    "name": "Pygments",
+    "version": "2.21.0",
+    "license": "BSD-2-Clause",
+    "files": [
+      "Pygments/licenses/AUTHORS",
+      "Pygments/licenses/LICENSE"
+    ]
+  },
+  {
+    "name": "pyinstaller",
+    "version": "6.22.3",
+    "license": "GPLv2-or-later with a special exception which allows to use PyInstaller to build and distribute non-free programs (including commercial ones)",
+    "files": [
+      "pyinstaller/licenses/COPYING.txt"
+    ]
+  },
+  {
+    "name": "pyinstaller-hooks-contrib",
+    "version": "2026.10",
+    "license": "",
+    "files": [
+      "pyinstaller-hooks-contrib/licenses/LICENSE"
+    ]
+  },
+  {
+    "name": "PyMsgBox",
+    "version": "2.0.1",
+    "license": "Copyright (c) 2014, Al Sweigart\nAll rights reserved.\n\nRedistribution and use in source and binary forms, with or without\nmodification, are permitted provided that the following conditions are met:\n\n* Redistributions of source code must retain the above copyright notice, this\n  list of conditions and the following disclaimer.\n\n* Redistributions in binary form must reproduce the above copyright notice,\n  this list of conditions and the following disclaimer in the documentation\n  and/or other materials provided with the distribution.\n\n* Neither the name of the {organization} nor the names of its\n  contributors may be used to endorse or promote products derived from\n  this software without specific prior written permission.\n\nTHIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS \"AS IS\"\nAND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE\nIMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE\nDISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE\nFOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL\nDAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR\nSERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER\nCAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,\nOR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE\nOF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.\n",
+    "files": [
+      "PyMsgBox/licenses/AUTHORS.txt",
+      "PyMsgBox/licenses/LICENSE.txt"
+    ]
+  },
+  {
+    "name": "pyperclip",
+    "version": "1.11.0",
+    "license": "BSD",
+    "files": [
+      "pyperclip/licenses/AUTHORS.txt",
+      "pyperclip/licenses/LICENSE.txt"
+    ]
+  },
+  {
+    "name": "PyRect",
+    "version": "0.2.0",
+    "license": "BSD",
+    "files": [
+      "PyRect/licenses/AUTHORS.txt",
+      "PyRect/licenses/LICENSE.txt"
+    ]
+  },
+  {
+    "name": "PyScreeze",
+    "version": "1.0.1",
+    "license": "MIT",
+    "files": [
+      "PyScreeze/licenses/AUTHORS.txt",
+      "PyScreeze/licenses/LICENSE.txt"
+    ]
+  },
+  {
+    "name": "pytest",
+    "version": "9.2.0",
+    "license": "MIT",
+    "files": [
+      "pytest/licenses/LICENSE"
+    ]
+  },
+  {
+    "name": "pytweening",
+    "version": "1.2.0",
+    "license": "MIT",
+    "files": [
+      "pytweening/licenses/AUTHORS.txt",
+      "pytweening/licenses/LICENSE.txt"
+    ]
+  },
+  {
+    "name": "pywin32-ctypes",
+    "version": "0.2.3",
+    "license": "BSD-3-Clause",
+    "files": [
+      "pywin32-ctypes/LICENSE.txt"
+    ]
+  },
+  {
+    "name": "PyYAML",
+    "version": "6.0.3",
+    "license": "MIT",
+    "files": [
+      "PyYAML/licenses/LICENSE"
+    ]
+  },
+  {
+    "name": "rapidocr",
+    "version": "3.9.2",
+    "license": "Apache-2.0",
+    "files": []
+  },
+  {
+    "name": "requests",
+    "version": "2.34.2",
+    "license": "Apache-2.0",
+    "files": [
+      "requests/licenses/LICENSE",
+      "requests/licenses/NOTICE"
+    ]
+  },
+  {
+    "name": "setuptools",
+    "version": "84.2.1",
+    "license": "MIT",
+    "files": [
+      "setuptools/licenses/LICENSE",
+      "setuptools/LICENSE",
+      "setuptools/LICENSE",
+      "setuptools/licenses/LICENSE",
+      "setuptools/LICENSE",
+      "setuptools/licenses/LICENSE",
+      "setuptools/licenses/LICENSE",
+      "setuptools/licenses/LICENSE",
+      "setuptools/licenses/LICENSE",
+      "setuptools/licenses/LICENSE.APACHE",
+      "setuptools/licenses/LICENSE.BSD",
+      "setuptools/licenses/LICENSE",
+      "setuptools/licenses/LICENSE",
+      "setuptools/licenses/LICENSE.txt",
+      "setuptools/licenses/LICENSE"
+    ]
+  },
+  {
+    "name": "shapely",
+    "version": "2.2.0",
+    "license": "BSD-3-Clause",
+    "files": [
+      "shapely/licenses/LICENSE.txt",
+      "shapely/licenses/LICENSE_GEOS",
+      "shapely/licenses/LICENSE_win32"
+    ]
+  },
+  {
+    "name": "six",
+    "version": "1.17.0",
+    "license": "MIT",
+    "files": [
+      "six/LICENSE"
+    ]
+  },
+  {
+    "name": "sv_ttk",
+    "version": "2.6.1",
+    "license": "MIT",
+    "files": [
+      "sv_ttk/licenses/LICENSE"
+    ]
+  },
+  {
+    "name": "tqdm",
+    "version": "4.70.1",
+    "license": "MPL-2.0 AND MIT",
+    "files": [
+      "tqdm/licenses/LICENCE"
+    ]
+  },
+  {
+    "name": "typing_extensions",
+    "version": "4.16.0",
+    "license": "PSF-2.0",
+    "files": [
+      "typing_extensions/licenses/LICENSE"
+    ]
+  },
+  {
+    "name": "urllib3",
+    "version": "2.8.0",
+    "license": "MIT",
+    "files": [
+      "urllib3/licenses/LICENSE.txt"
+    ]
+  }
+]

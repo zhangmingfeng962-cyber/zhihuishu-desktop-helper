@@ -1,0 +1,65 @@
+{
+  "success": true,
+  "fixture": "two chapters / four videos / popup questions / chapter tests",
+  "video_starts": {
+    "1.1": 1,
+    "1.2": 1,
+    "2.1": 1,
+    "2.2": 1
+  },
+  "popup_submits": {
+    "1.1": 1,
+    "1.2": 1,
+    "2.1": 1,
+    "2.2": 1
+  },
+  "quiz_submits": {
+    "1": 1,
+    "2": 1
+  },
+  "correct_popups": true,
+  "tasks": [
+    {
+      "chapter": "1",
+      "code": "1.1",
+      "kind": "video",
+      "status": "done",
+      "source": "session"
+    },
+    {
+      "chapter": "1",
+      "code": "1.2",
+      "kind": "video",
+      "status": "done",
+      "source": "session"
+    },
+    {
+      "chapter": "1",
+      "code": "",
+      "kind": "quiz",
+      "status": "done",
+      "source": "session"
+    },
+    {
+      "chapter": "2",
+      "code": "2.1",
+      "kind": "video",
+      "status": "done",
+      "source": "session"
+    },
+    {
+      "chapter": "2",
+      "code": "2.2",
+      "kind": "video",
+      "status": "done",
+      "source": "session"
+    },
+    {
+      "chapter": "2",
+      "code": "",
+      "kind": "quiz",
+      "status": "done",
+      "source": "session"
+    }
+  ]
+}
