@@ -8,7 +8,7 @@ Windows 桌面视觉自动化工具，基于 Autovisor MIT 项目改造。默认
 
 ## 下载与开始
 
-GitHub Releases 当前仍是 [Beta1 旧运行包](https://github.com/zhangmingfeng962-cyber/zhihuishu-desktop-helper/releases/tag/v0.2.1-beta.1)，包含本次已修复的已知问题。Beta2 运行包尚未同步到 Releases；当前 main 分支为 Beta2 源码，可按下方命令构建。
+[下载 Beta2 Windows x64 运行包、源码及测试报告](https://github.com/zhangmingfeng962-cyber/zhihuishu-desktop-helper/releases/tag/v0.2.1-beta.2)。请使用 Beta2；Beta1 保留为旧版本。
 
 完整解压 `windows-x64.zip` 后运行 `AutovisorDesktop.exe`，保留 `_internal` 文件夹。
 无需安装 Python 或浏览器扩展。可先点“离线演示”自动运行两章四节视频、弹题和章测，不需要 API Key。
