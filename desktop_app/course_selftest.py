@@ -17,7 +17,8 @@ def main(report_dir: str,resume_test=False):
     directory=Path(report_dir).resolve();directory.mkdir(parents=True,exist_ok=True)
     root=tk.Tk();demo=CourseDemo(root,first_duration=30 if resume_test else None)
     stop,pause=threading.Event(),threading.Event()
-    result={'success':False,'fixture':'two chapters / four videos / popup questions / chapter tests','events':[]}
+    from . import __version__
+    result={'success':False,'version':__version__,'fixture':'two chapters / four videos / popup questions / chapter tests','events':[]}
     holder={}
 
     (directory/'course-events.jsonl').write_text('',encoding='utf8')

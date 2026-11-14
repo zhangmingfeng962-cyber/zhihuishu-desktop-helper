@@ -119,7 +119,7 @@ def test_course_tables_preserve_legacy_answer_records(tmp_path):
 
 def runner_fixture(tmp_path):
     j=Journal(tmp_path/'j.db')
-    profile=Profile(task_name='测试课程',regions={key:Rect(0,0,440,500) for key in ('player','question','popup')})
+    profile=Profile(task_name='测试课程',auto_mute=False,regions={key:Rect(0,0,440,500) for key in ('player','question','popup')})
     profile.regions['catalog']=Rect(450,0,150,500)
     runner=CourseRunner(Mock(),Mock(),Mock(),j,profile,threading.Event(),threading.Event(),Mock())
     return runner,j,Image.new('RGB',(600,500),'white')

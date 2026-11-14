@@ -174,6 +174,7 @@ class Profile:
     base_url: str = "https://api.deepseek.com/chat/completions"
     model: str = "deepseek-flash"
     mode: str = 'course'
+    auto_mute: bool = True
 
     def to_dict(self) -> dict:
         return asdict(self)

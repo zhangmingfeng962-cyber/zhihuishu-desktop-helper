@@ -6,6 +6,7 @@ from pathlib import Path
 import queue
 import sys
 import threading
+import time
 import tkinter as tk
 from tkinter import ttk, messagebox, scrolledtext
 from tkinter import font as tkfont
@@ -17,6 +18,7 @@ from .vision import LocalOCR, Perception
 from .ai import OnlineAI,DeferredOnlineAI
 from .runner import Runner
 from .course import CourseRunner
+from .connection import probe_connection
 
 
 REGIONS = {"章节题目区域": "question", "视频弹题区域": "popup", "视频画面及控制条": "player",
@@ -111,12 +113,18 @@ class App:
         self.model_text = tk.StringVar(value=self.profile.model)
         self.key_text = tk.StringVar()
         self.mode_text=tk.StringVar(value='仅答题' if self.profile.mode=='quiz' else '看课＋答题（整门课程）')
+        self.mute_text=tk.BooleanVar(value=self.profile.auto_mute)
+        self.ai_status=tk.StringVar(value='尚未验证连接。填写 Key 后点击“测试连接”。')
+        self.ai_test_running=False
+        self.ai_test_id=0
+        self.ai_test_stop=threading.Event()
+        self.ai_verified_signature=None
         try:
             self.key_text.set(self.credentials.get())
         except Exception:
             pass
         self.region_name = tk.StringVar(value=next(iter(REGIONS)))
-        self.root.title("智慧树桌面助手 · Autovisor Desktop 0.2.1 Beta1")
+        self.root.title("智慧树桌面助手 · Autovisor Desktop 0.2.1 Beta2")
         self.root.geometry(f"1120x{min(1080,self.root.winfo_screenheight()-120)}")
         self.root.minsize(850, 680)
         self.root.configure(bg="#f3f5f8")
@@ -180,6 +188,7 @@ class App:
         ttk.Button(row, text="继续", command=self.resume).pack(side="left")
         ttk.Button(row, text="停止", command=self.stop.set).pack(side="left", padx=8)
         ttk.Button(row, text="离线演示", command=self.demo).pack(side="right")
+        ttk.Checkbutton(tab,text='自动静音课程标签页（默认开启，已静音时不会反向开启声音）',variable=self.mute_text).pack(anchor='w',pady=(0,12))
         ttk.Label(tab, text="当前题目与答案", font=("Microsoft YaHei UI", 12, "bold")).pack(anchor="w")
         self.answer_text = scrolledtext.ScrolledText(tab, height=7, wrap="word", font=("Microsoft YaHei UI", 11), relief="flat", bg="#f1f5f9", fg="#172b4d", padx=12, pady=10)
         self.answer_text.pack(fill="both", expand=True, pady=(8,16))
@@ -215,9 +224,19 @@ class App:
             entry = ttk.Entry(tab, textvariable=var, show="•" if secret else "",font=('Microsoft YaHei UI',11))
             entry.pack(fill="x")
             ttk.Label(tab, text=hint, foreground="#475569", wraplength=800).pack(anchor="w", pady=(5,4))
-        ttk.Label(tab, text="在线答题会向所选服务发送题干和选项文字。首次 OCR 启动可能需要下载本地模型。", wraplength=800).pack(anchor="w", pady=20)
-        ttk.Button(tab, text="保存配置", command=self.save).pack(anchor="w")
-        ttk.Button(tab, text="发送测试题验证接口", command=self.test_ai).pack(anchor="w", pady=12)
+        ttk.Label(tab, text="测试会发送一道简单题目，只验证当前输入。使用前请点“保存配置”；仅保存 Key 不代表连接已经验证。", wraplength=800).pack(anchor="w", pady=12)
+        actions=ttk.Frame(tab);actions.pack(fill='x',pady=(4,12))
+        ttk.Button(actions,text='保存配置',command=self.save).pack(side='left')
+        self.ai_test_button=ttk.Button(actions,text='测试连接',command=self.test_ai,style='Accent.TButton')
+        self.ai_test_button.pack(side='left',padx=10)
+        self.ai_cancel_button=ttk.Button(actions,text='取消测试',command=self.cancel_ai_test,state='disabled')
+        self.ai_cancel_button.pack(side='left')
+        self.ai_progress=ttk.Progressbar(tab,mode='indeterminate',maximum=100)
+        self.ai_progress.pack(fill='x',pady=(0,10))
+        self.ai_status_label=ttk.Label(tab,textvariable=self.ai_status,foreground='#334155',wraplength=800,font=('Microsoft YaHei UI',11,'bold'))
+        self.ai_status_label.pack(anchor='w',fill='x')
+        for variable in (self.base_text,self.model_text,self.key_text):
+            variable.trace_add('write',self.ai_config_changed)
 
     def build_help(self):
         text = """首次使用
@@ -285,6 +304,8 @@ AI 可能答错；程序不保证免检测。真实课程适配和正确率需�
                     self.answer_text.configure(state="disabled")
                 elif kind == "callback":
                     value()
+                elif kind == 'ai_test_result':
+                    self.finish_ai_test(*value)
         except queue.Empty:
             pass
         if not self.shutdown.is_set():
@@ -322,11 +343,13 @@ AI 可能答错；程序不保证免检测。真实课程适配和正确率需�
         self.profile.base_url = self.base_text.get().strip()
         self.profile.model = self.model_text.get().strip()
         self.profile.mode='quiz' if self.mode_text.get()=='仅答题' else 'course'
+        self.profile.auto_mute=self.mute_text.get()
         try:
             self.credentials.set(self.key_text.get().strip())
             save_profile(self.data, self.profile)
             if inform:
                 self.status.set("配置已保存。")
+                self.ai_status.set('配置已保存。'+('当前配置已验证可用。' if self.ai_verified_signature==self.ai_signature() else '连接尚未验证，请点击“测试连接”。'))
         except Exception:
             messagebox.showerror("配置未保存", "Windows 凭据管理器或配置文件写入失败。请检查当前用户权限。")
             return False
@@ -475,26 +498,70 @@ AI 可能答错；程序不保证免检测。真实课程适配和正确率需�
             self.journal.reset()
             self.status.set("本地记录已清除。")
 
+    def ai_signature(self):
+        return fingerprint(self.base_text.get().strip()+'\0'+self.model_text.get().strip()+'\0'+self.key_text.get().strip())
+
+    def ai_config_changed(self,*args):
+        self.ai_verified_signature=None
+        if not self.ai_test_running:
+            self.ai_status.set('配置已更改，尚未验证。点击“测试连接”检查当前输入。')
+            self.ai_status_label.configure(foreground='#334155')
+
     def test_ai(self):
-        if self.busy:
-            self.status.set('正在识别或测试接口，请等待当前操作完成。')
+        if self.busy or self.worker and self.worker.is_alive():
+            self.ai_status.set('请先停止看课任务，或等待当前识别结束，再测试连接。')
             return
-        if not self.save(False):
+        address,model,key=self.base_text.get().strip(),self.model_text.get().strip(),self.key_text.get().strip()
+        if not key or not model:
+            self.ai_status.set('尚未开始测试：请填写 API Key 和模型名称。')
+            self.ai_status_label.configure(foreground='#b91c1c')
             return
-        from .domain import Question, Option, Rect
-        question = Question("single", "1+1等于几？", 1, 1, "popup", options=[Option("A", "1", Rect(0,0,20,20)), Option("B", "2", Rect(0,30,20,20))])
-        self.status.set("正在发送测试题验证接口……")
-        self.busy=True
+        self.ai_test_id+=1;token=self.ai_test_id
+        self.ai_test_signature=self.ai_signature()
+        self.ai_started_at=time.monotonic()
+        self.ai_test_stop=threading.Event();stop=self.ai_test_stop
+        self.ai_test_running=True;self.busy=True
+        self.ai_test_button.configure(text='测试中…',state='disabled')
+        self.ai_cancel_button.configure(state='normal')
+        self.ai_progress.start(12)
+        self.ai_status_label.configure(foreground='#1d4ed8')
+        self.ai_status.set('正在测试连接 · 0 秒；结果会显示在这里。')
+        self.root.after(500,lambda:self.tick_ai_test(token))
         def work():
-            try:
-                ai = OnlineAI(self.profile.base_url, self.profile.model, self.key_text.get().strip(), threading.Event())
-                answer = ai.solve(question)
-                self.emit("log", "AI 接口调用成功，返回有效选项：" + ",".join(answer.values))
-            except Exception as exc:
-                self.emit("error", str(exc) if isinstance(exc, PauseRequired) else f"接口测试失败：{type(exc).__name__}")
-            finally:
-                self.emit('callback',lambda:setattr(self,'busy',False))
-        threading.Thread(target=work, daemon=True).start()
+            result=probe_connection(address,model,key,stop)
+            self.emit('ai_test_result',(token,result))
+        threading.Thread(target=work,daemon=True).start()
+
+    def tick_ai_test(self,token):
+        if not self.ai_test_running or token!=self.ai_test_id:return
+        elapsed=int(time.monotonic()-self.ai_started_at)
+        if elapsed>=45:
+            self.ai_test_stop.set()
+            self.finish_ai_test(token,{'status':'failed','message':'测试等待超时，请检查网络、接口地址后重试。','elapsed':elapsed})
+            return
+        self.ai_status.set(f'正在测试连接 · 已等待 {elapsed} 秒；可点击“取消测试”。')
+        self.root.after(500,lambda:self.tick_ai_test(token))
+
+    def cancel_ai_test(self):
+        if not self.ai_test_running:return
+        self.ai_test_stop.set()
+        self.finish_ai_test(self.ai_test_id,{'status':'cancelled','message':'已取消等待；正在进行的请求会按网络超时结束。','elapsed':round(time.monotonic()-self.ai_started_at,1)})
+
+    def finish_ai_test(self,token,result):
+        if token!=self.ai_test_id or not self.ai_test_running:return
+        self.ai_test_running=False;self.busy=False
+        self.ai_progress.stop()
+        self.ai_test_button.configure(text='重新测试',state='normal')
+        self.ai_cancel_button.configure(state='disabled')
+        changed=self.ai_test_signature!=self.ai_signature()
+        if changed and result['status'] in {'passed','warning'}:
+            result={**result,'status':'warning','message':'本次请求已连接，但输入已更改，请重新测试当前配置。'}
+        if result['status']=='passed':self.ai_verified_signature=self.ai_signature()
+        color={'passed':'#166534','failed':'#b91c1c','warning':'#92400e','cancelled':'#475569'}[result['status']]
+        self.ai_status_label.configure(foreground=color)
+        message=result['message']+f"  用时 {result['elapsed']} 秒。"
+        self.ai_status.set(message);self.status.set(message)
+        self.emit('log',message)
 
     def demo(self):
         if self.worker and self.worker.is_alive():
@@ -529,6 +596,7 @@ AI 可能答错；程序不保证免检测。真实课程适配和正确率需�
         self.status.set("演示已打开。刷新并绑定演示窗口，再框选其白色题目面板。")
 
     def close(self):
+        self.ai_test_stop.set()
         self.stop.set()
         self.shutdown.set()
         self.root.destroy()

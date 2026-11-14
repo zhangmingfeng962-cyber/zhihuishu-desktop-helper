@@ -16,7 +16,7 @@ blank 返回与 blank_count 等长的字符串数组，按题干阅读顺序一�
 
 
 class OnlineAI:
-    def __init__(self, base_url: str, model: str, key: str, stop: threading.Event):
+    def __init__(self, base_url: str, model: str, key: str, stop: threading.Event, request_timeout: float = 45):
         parsed = urlsplit(base_url)
         if not (parsed.scheme == 'https' and parsed.hostname) and not (parsed.scheme == 'http' and parsed.hostname in {'127.0.0.1','localhost','::1'}):
             raise PauseRequired("AI 接口地址应使用 HTTPS；本机服务可使用 HTTP。")
@@ -26,6 +26,7 @@ class OnlineAI:
         if not self.endpoint.endswith("/chat/completions"):
             self.endpoint += "/chat/completions" if self.endpoint.endswith("/v1") else "/v1/chat/completions"
         self.model, self.key, self.stop = model, key, stop
+        self.request_timeout = request_timeout
 
     def solve(self, question: Question) -> Answer:
         if self.stop.is_set():
@@ -38,13 +39,17 @@ class OnlineAI:
             payload["response_format"] = {"type": "json_object"}
             payload["max_tokens"] = 2048
         try:
-            with httpx.Client(timeout=httpx.Timeout(45, connect=10), follow_redirects=False) as client:
+            with httpx.Client(timeout=httpx.Timeout(self.request_timeout, connect=min(10,self.request_timeout)), follow_redirects=False) as client:
                 response = client.post(self.endpoint, headers={"Authorization": "Bearer " + self.key}, json=payload)
             if self.stop.is_set():
                 raise Stopped()
             if response.status_code != 200:
                 # Do not log provider bodies, URLs or headers: they may contain credentials.
-                raise PauseRequired(f"AI 请求失败（HTTP {response.status_code}），请检查接口、余额和模型权限。")
+                reasons={401:'API Key 无效或已失效，请重新填写密钥',403:'密钥没有访问权限，请检查账号和模型权限',
+                         402:'账号余额不足，请检查服务余额',404:'接口地址或模型不存在，请检查这两项配置',
+                         429:'请求过于频繁或额度受限，请稍后重试'}
+                reason=reasons.get(response.status_code,'服务暂时不可用，请稍后重试' if response.status_code>=500 else '服务拒绝请求，请检查接口和模型配置')
+                raise PauseRequired(f"AI 请求失败（HTTP {response.status_code}）：{reason}。")
             content = response.json()["choices"][0]["message"]["content"]
             if not isinstance(content, str):
                 raise ValueError()

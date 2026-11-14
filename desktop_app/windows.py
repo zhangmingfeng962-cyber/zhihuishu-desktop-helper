@@ -180,7 +180,7 @@ class Desktop:
             self.check()
             time.sleep(min(.1, max(0, deadline-time.monotonic())))
 
-    def click(self, box: Rect, expected: Image.Image | None = None):
+    def click(self, box: Rect, expected: Image.Image | None = None, button='left'):
         origin = self.check()
         if not Rect(0, 0, origin.w, origin.h).contains(box):
             raise PauseRequired("点击目标超出课程窗口，已停止该动作。")
@@ -191,7 +191,11 @@ class Desktop:
             if a.shape != b.shape or np.mean(np.abs(a - b)) > 24:
                 raise PauseRequired("点击位置的画面发生变化，请重新识别。")
         self.check()
-        self.gui.click(origin.x + box.center[0], origin.y + box.center[1])
+        self.gui.click(origin.x + box.center[0], origin.y + box.center[1],button=button)
+
+    def ensure_muted(self,vision,frame,view):
+        from .audio import ensure_course_muted
+        return ensure_course_muted(self,vision,frame,view)
 
     def scroll(self, amount: int, region: Rect):
         origin = self.check()
@@ -204,7 +208,12 @@ class Desktop:
 
     def reveal_player(self, region: Rect):
         origin=self.check()
-        self.gui.moveTo(origin.x+region.x+35,origin.y+region.y+region.h-35)
+        # Some players have a black letterbox BELOW the interactive video.
+        # Hover inside the video body so its own controls are revealed.
+        x=origin.x+region.x+min(70,region.w//4)
+        y=origin.y+region.y+int(region.h*.8)
+        self.gui.moveTo(x+min(15,region.w//10),y)
+        self.gui.moveTo(x,y)
         self.wait(.35)
 
     def press(self,*keys):

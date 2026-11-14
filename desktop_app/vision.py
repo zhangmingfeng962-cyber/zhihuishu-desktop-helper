@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import os
 from dataclasses import dataclass
 import cv2
 import numpy as np
@@ -90,7 +91,9 @@ class LocalOCR:
         if self.engine is None:
             try:
                 from rapidocr import RapidOCR
-                self.engine = RapidOCR(params={"Global.text_score": .60, "Global.use_cls": False})
+                self.engine = RapidOCR(params={"Global.text_score": .60, "Global.use_cls": False,
+                    "EngineConfig.onnxruntime.intra_op_num_threads": min(2,os.cpu_count() or 1),
+                    "EngineConfig.onnxruntime.inter_op_num_threads": 1})
             except Exception as exc:
                 raise PauseRequired("OCR 初始化失败，请检查模型文件及运行日志。首次启动需要下载模型。") from exc
         region = region or Rect(0, 0, *image.size)
@@ -125,8 +128,27 @@ class Perception:
     def __init__(self, ocr: LocalOCR):
         self.ocr = ocr
 
+    def video_spans(self,image,profile):
+        player=profile.regions.get('player')
+        if not player:return self.ocr.read(image)
+        regions=[Rect(0,0,image.width,min(image.height,player.y+65)),
+                 Rect(player.x,max(player.y,player.y+player.h-170),player.w,min(170,player.h))]
+        popup=profile.regions.get('popup')
+        if popup:
+            rgb=np.asarray(image.crop(popup.bounds).convert('RGB'))
+            # A white modal covers the lecture image. Avoid repeatedly OCRing
+            # hundreds of words inside the lecture while no popup is present.
+            white=np.all(rgb>225,axis=2)&((rgb.max(axis=2)-rgb.min(axis=2))<30)
+            if np.mean(white)>.55:regions.append(popup)
+        spans=[]
+        for region in regions:
+            for span in self.ocr.read(image,region):
+                if not any(normalized(span.text)==normalized(old.text) and overlap(span.box,old.box)>.6 for old in spans):
+                    spans.append(span)
+        return sorted(spans,key=lambda s:(s.box.y,s.box.x))
+
     def inspect(self, image: Image.Image, profile: Profile, spans: list[Span] | None = None, scope_hint: str = 'auto') -> View:
-        spans = self.ocr.read(image) if spans is None else spans
+        spans = (self.video_spans(image,profile) if scope_hint=='video' else self.ocr.read(image)) if spans is None else spans
         view = View(spans)
         text = normalized("\n".join(s.text for s in spans))
         header=normalized(''.join(s.text for s in spans if s.box.y<max(220,image.height*.2)))
@@ -135,16 +157,22 @@ class Perception:
             view.blocked = "检测到“" + guard.group() + "”，请在浏览器检查；程序已暂停。"
             return view
         view.unfinished = bool(re.search(r"还有.*(?:未答|未完成)|存在未作答|尚未完成|漏答", text))
-        view.popup_feedback = bool(re.search(r'回答正确|回答错误|答案正确|答案错误|正确答案[:：]',text))
+        popup = profile.regions.get('popup')
+        popup_text = normalized(''.join(s.text for s in spans if popup and popup.contains(s.box)))
+        # A graded video popup can retain all options. It is a result, not a new
+        # question. Restrict this signal and its close control to that popup.
+        view.popup_feedback = scope_hint != 'chapter' and bool(re.search(r'回答正确|回答错误|答案正确|答案错误|正确答案[:：]',popup_text))
         view.confirmation = bool(re.search(r"确认提交|确定交卷|确认交卷|是否提交|确定要提交|提交后.*(?:修改|撤回)|确认要提交", text))
         for name, labels in BUTTONS.items():
             candidates = [s for s in spans if normalized(s.text).strip("。！!？?：:") in labels and s.score >= .65]
+            if name == 'popup_done':
+                candidates = [s for s in candidates if popup and popup.contains(s.box)]
             if name == "confirm" and view.confirmation and profile.regions.get("dialog"):
                 candidates = [s for s in candidates if profile.regions["dialog"].contains(s.box)]
             if candidates:
                 view.buttons[name] = max(candidates, key=lambda s: s.box.y).box
         view.tab_titles=[s.text for s in spans if s.box.y<85 and re.search(r'课程学习|作业|在线学堂|单元测试|章节测试',s.text) and len(s.text)<65]
-        tab=next((s for s in spans if '课程学习' in s.text and s.box.y<85),None)
+        tab=next((s for s in spans if '课程学习' in s.text and ('智慧树' in s.text or '知到' in s.text) and s.box.y<85),None)
         if tab:
             view.buttons['course_tab']=tab.box
         content_text=normalized(''.join(s.text for s in spans if s.box.y>max(100,image.height*.08)))
@@ -160,6 +188,8 @@ class Perception:
             region = profile.regions.get(region_name)
             if not region:
                 continue
+            if scope == 'popup' and view.popup_feedback:
+                break
             question = self.question(image, spans, region, profile, scope)
             if question:
                 view.question = question
@@ -178,7 +208,7 @@ class Perception:
                     return result
                 view.video_position=seconds(times[-1][0])
                 view.video_duration=seconds(times[-1][1])
-            codes=[re.search(r'(?<!\d)(\d+\.\d+(?:\.\d+)*)(?:[、.．\s]|[^\d.:])',s.text) for s in spans if not profile.regions.get('catalog',Rect(0,0,0,0)).contains(s.box) and s.box.y<player.y+90]
+            codes=[re.search(r'(?<!\d)(\d+\.\d+(?:\.\d+)*)(?:[、.．\s]|[^\d.:])',s.text) for s in spans if not profile.regions.get('catalog',Rect(0,0,0,0)).contains(s.box) and max(90,player.y-110)<=s.box.y<player.y+65]
             view.video_lesson=next((m[1] for m in codes if m),'')
             view.video_visible = bool(times) or 'play' in view.buttons
             view.video_finished = any(a == b and a not in {"00:00", "00:00:00", "0:00"} for a, b in times)
@@ -197,9 +227,11 @@ class Perception:
     @staticmethod
     def play_triangle(image: Image.Image, player: Rect) -> Rect | None:
         # Only the bottom-left player control. Never infer play from an entire video.
-        region = Rect(player.x, max(player.y, player.y + player.h - 85), min(115, player.w), min(85, player.h))
+        # The calibrated player can include a bottom letterbox. The actual
+        # control bar may be 100+ pixels above that region's bottom edge.
+        region = Rect(player.x, max(player.y, player.y + player.h - 220), min(95, player.w), min(220, player.h))
         gray = cv2.cvtColor(np.asarray(image.crop(region.bounds).convert("RGB")), cv2.COLOR_RGB2GRAY)
-        _, binary = cv2.threshold(gray, 190, 255, cv2.THRESH_BINARY)
+        _, binary = cv2.threshold(gray, 245, 255, cv2.THRESH_BINARY)
         contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         for c in contours:
             x, y, w, h = cv2.boundingRect(c)
@@ -236,7 +268,7 @@ class Perception:
         if scope == "popup":
             index, total = 1, 1
         button_words = {word for labels in BUTTONS.values() for word in labels}
-        body = [s for s in relevant if normalized(s.text) not in button_words and not re.fullmatch(r"共\d+题", normalized(s.text))
+        body = [s for s in relevant if s.box.y >= heading.box.y-3 and normalized(s.text) not in button_words and not re.fullmatch(r"共\d+题", normalized(s.text))
                 and not re.fullmatch(r"[■□☐☑✓✔√●○◎◉]+", normalized(s.text))]
         # OCR can merge an empty radio ring into the label as 'O A.' / 'OB.'.
         # Canonicalize only a decoration immediately preceding a valid label.

@@ -8,6 +8,11 @@ from .storage import Journal
 from .vision import Perception, selection_state
 
 
+class PopupAnswered(Exception):
+    def __init__(self, frame, view):
+        self.frame, self.view = frame, view
+
+
 class Runner:
     def __init__(self, desktop, perception: Perception, ai, journal: Journal, profile: Profile,
                  stop: threading.Event, pause: threading.Event, emit):
@@ -28,6 +33,7 @@ class Runner:
         self.started_at = time.monotonic()
         self.popup_absent_frames = 0
         self.popup_feedback_closed = False
+        self.popup_close_deadline = None
 
     def note(self, message: str):
         self.emit("log", message)
@@ -36,7 +42,8 @@ class Runner:
         return self.vision.inspect(frame,self.profile)
 
     def on_resume(self):
-        pass
+        self.popup_feedback_closed = False
+        self.popup_close_deadline = None
 
     def quiz_for(self, q: Question) -> str:
         total = q.total
@@ -73,6 +80,8 @@ class Runner:
         view = self.inspect(frame)
         if view.blocked:
             raise PauseRequired(view.blocked)
+        if q.scope == 'popup' and view.popup_feedback:
+            raise PopupAnswered(frame, view)
         if not view.question or view.question.key != expected_key:
             raise PauseRequired("题目在分析期间发生变化，已取消旧答案的填写。")
         if not self.document:
@@ -126,6 +135,43 @@ class Runner:
             if selected != set(answer.values):
                 raise PauseRequired("最终选项状态与答案不一致。")
 
+    def handle_popup_feedback(self, frame, view):
+        if view.popup_feedback:
+            if not self.popup_feedback_closed:
+                if 'popup_done' not in view.buttons:
+                    raise PauseRequired('弹题已显示结果，但未识别到弹窗内的关闭按钮，请调整视频弹题区域。')
+                self.desktop.click(view.buttons['popup_done'],frame)
+                self.popup_feedback_closed = True
+                self.popup_close_deadline = time.monotonic()+45
+                self.popup_absent_frames = 0
+                self.note('弹题已显示作答结果，正在关闭并恢复原视频。')
+            elif time.monotonic() > self.popup_close_deadline:
+                raise PauseRequired('点击关闭后弹题结果仍未消失，请检查弹窗并继续。')
+            return True
+        if not self.popup_feedback_closed:
+            return False
+        if view.blocked:
+            raise PauseRequired(view.blocked)
+        if not view.question and not view.confirmation:
+            if not view.video_visible and self.profile.regions.get('player'):
+                self.desktop.reveal_player(self.profile.regions['player'])
+                frame=self.desktop.capture();view=self.inspect(frame)
+                if view.blocked:raise PauseRequired(view.blocked)
+            if (view.video_visible or view.video_lesson) and not view.question and not view.popup_feedback:
+                self.popup_absent_frames += 1
+                if self.popup_absent_frames >= 2:
+                    if self.quiz and self.quiz.startswith('popup:'):
+                        state=self.journal.state(self.quiz)
+                        self.journal.transition(self.quiz,state,'success')
+                        self.quiz=None;self.submit_deadline=None
+                    self.popup_feedback_closed=False;self.popup_close_deadline=None
+                    self.popup_absent_frames=0;self.on_resume()
+                    self.note('已确认弹题关闭，继续当前视频。')
+                return True
+        if time.monotonic() > self.popup_close_deadline:
+            raise PauseRequired('弹题关闭后未确认返回播放器，请检查视频区域。')
+        return True
+
     def pending_submission(self, frame: Image.Image, view: View) -> bool:
         if not self.quiz:
             return False
@@ -135,10 +181,7 @@ class Runner:
         if view.unfinished:
             raise PauseRequired("页面提示存在未完成题目，已暂停交卷。请检查题目或清除本次记录后重做。")
         if self.quiz.startswith('popup:'):
-            if view.popup_feedback and 'popup_done' in view.buttons and not self.popup_feedback_closed:
-                self.popup_feedback_closed = True
-                self.desktop.click(view.buttons['popup_done'],frame)
-                return True
+            if self.handle_popup_feedback(frame,view):return True
             if not view.question and not view.confirmation and view.video_visible:
                 self.popup_absent_frames += 1
                 if self.popup_absent_frames >= 2:
@@ -177,12 +220,20 @@ class Runner:
         return True
 
     def step(self, frame: Image.Image | None = None, view: View | None = None):
+        try:
+            return self._step(frame,view)
+        except PopupAnswered as result:
+            self.handle_popup_feedback(result.frame,result.view)
+
+    def _step(self, frame: Image.Image | None = None, view: View | None = None):
         frame = self.desktop.capture() if frame is None else frame
         view = self.inspect(frame) if view is None else view
         self.last_view, self.last_frame = view, frame
         self.emit("view", view)
         if view.blocked:
             raise PauseRequired(view.blocked)
+        if self.handle_popup_feedback(frame,view):
+            return
         if self.pending_submission(frame, view):
             return
         if view.confirmation:
