@@ -357,7 +357,7 @@ class CourseController:
                 task.status='pending';task.completion_source=''
             if row.done:
                 if task.status!='done':
-                    task.completion_source='existing'
+                    task.completion_source='session' if task.status=='running' else 'existing'
                 task.status='done'
             self.journal.save_task(self.course,task);tasks.append(task)
         self.tasks=tasks

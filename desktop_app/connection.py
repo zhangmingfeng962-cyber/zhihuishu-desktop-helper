@@ -4,10 +4,15 @@ from .ai import OnlineAI
 from .domain import Question,Option,Rect,PauseRequired,Stopped
 
 
-def probe_connection(address,model,key,stop):
+def probe_connection(address,model,key,stop,visual=False):
     started=time.monotonic()
     question=Question('single','1+1等于几？',1,1,'popup',options=[Option('A','1',Rect(0,0,20,20)),Option('B','2',Rect(0,30,20,20))])
     try:
+        if visual:
+            from .vision_ai import visual_probe
+            correct,elapsed=visual_probe(address,model,key,stop)
+            if stop.is_set():raise Stopped()
+            return {'status':'passed' if correct else 'warning','message':'图片接口验证成功：识题、答案和操作位置均有效。' if correct else '接口返回了图片分析，但测试题或控件位置未通过，请核对模型。','elapsed':elapsed}
         answer=OnlineAI(address,model,key,stop,request_timeout=20).solve(question)
         if stop.is_set():raise Stopped()
         status='passed' if answer.values==['B'] else 'warning'

@@ -101,6 +101,10 @@ class Journal:
         actual = {r[0] for r in self.db.execute("SELECT idx FROM answer WHERE quiz=? AND verified=1", (quiz,))}
         return actual == set(range(1, row[0] + 1))
 
+    def verified_indices(self,quiz: str) -> list[int]:
+        with self.lock:
+            return [r[0] for r in self.db.execute('SELECT idx FROM answer WHERE quiz=? AND verified=1 ORDER BY idx',(quiz,))]
+
     def state(self, quiz: str) -> str:
         row = self.db.execute("SELECT state FROM quiz WHERE id=?", (quiz,)).fetchone()
         return row[0] if row else "working"

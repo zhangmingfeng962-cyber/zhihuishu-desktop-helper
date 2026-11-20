@@ -1,0 +1,7 @@
+{
+  "scene": "popup_result",
+  "intent": "close_popup",
+  "close_center_verified": true,
+  "request_seconds": 2.407,
+  "executed": false
+}

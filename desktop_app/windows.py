@@ -7,7 +7,7 @@ import time
 from dataclasses import dataclass
 import numpy as np
 from PIL import ImageGrab, Image
-from .domain import Rect, Profile, PauseRequired, Stopped
+from .domain import Rect, Profile, PauseRequired, Stopped, FrameChanged,InputFocusUnclear
 
 U = C.windll.user32
 K = C.windll.kernel32
@@ -180,7 +180,7 @@ class Desktop:
             self.check()
             time.sleep(min(.1, max(0, deadline-time.monotonic())))
 
-    def click(self, box: Rect, expected: Image.Image | None = None, button='left'):
+    def click(self, box: Rect, expected: Image.Image | None = None, button='left',strict=False):
         origin = self.check()
         if not Rect(0, 0, origin.w, origin.h).contains(box):
             raise PauseRequired("点击目标超出课程窗口，已停止该动作。")
@@ -188,14 +188,34 @@ class Desktop:
             current = self.capture()
             patch = box.expanded(3, origin.w, origin.h)
             a, b = np.asarray(expected.crop(patch.bounds), dtype=float), np.asarray(current.crop(patch.bounds), dtype=float)
-            if a.shape != b.shape or np.mean(np.abs(a - b)) > 24:
-                raise PauseRequired("点击位置的画面发生变化，请重新识别。")
+            if a.shape != b.shape or np.mean(np.abs(a - b)) > (5 if strict else 24):
+                raise FrameChanged("点击位置的画面发生变化，请重新识别。")
         self.check()
         self.gui.click(origin.x + box.center[0], origin.y + box.center[1],button=button)
 
     def ensure_muted(self,vision,frame,view):
         from .audio import ensure_course_muted
         return ensure_course_muted(self,vision,frame,view)
+
+    def fast_inputs(self):
+        self.gui.PAUSE=.02
+
+    def visual_hover(self,box,expected):
+        origin=self.check()
+        if not Rect(0,0,origin.w,origin.h).contains(box):raise PauseRequired('悬停位置超出课程窗口。')
+        self.gui.moveTo(origin.x+box.center[0]+min(4,box.w//4),origin.y+box.center[1])
+        self.gui.moveTo(origin.x+box.center[0],origin.y+box.center[1]);self.wait(.12)
+
+    def visual_scroll(self,amount,region,expected):
+        if type(amount) is not int or not -3<=amount<=3 or amount==0:raise PauseRequired('视觉滚动量无效。')
+        origin=self.check()
+        if not Rect(0,0,origin.w,origin.h).contains(region):raise PauseRequired('滚动区域超出课程窗口。')
+        a=np.asarray(expected.crop(region.bounds),dtype=float);b=np.asarray(self.capture().crop(region.bounds),dtype=float)
+        if a.shape!=b.shape or np.mean(np.abs(a-b))>24:raise FrameChanged('滚动区域已经变化，已丢弃旧坐标。')
+        self.gui.moveTo(origin.x+region.center[0],origin.y+region.center[1]);self.check()
+        event=wheel_event(amount)
+        if U.SendInput(1,C.byref(event),C.sizeof(INPUT))!=1:raise PauseRequired('Windows 滚动未完成。')
+        self.wait(.15)
 
     def scroll(self, amount: int, region: Rect):
         origin = self.check()
@@ -221,10 +241,10 @@ class Desktop:
         self.gui.hotkey(*keys)
         self.wait(.25)
 
-    def replace_text(self, box: Rect, text: str, expected: Image.Image):
+    def replace_text(self, box: Rect, text: str, expected: Image.Image, fast=False):
         before = np.asarray(expected.crop(box.bounds), dtype=float)
-        self.click(box, expected)
-        self.wait(.35)
+        self.click(box, expected,strict=fast)
+        self.wait(.08 if fast else .35)
         after = np.asarray(self.capture().crop(box.bounds), dtype=float)
         # Tab may already have focused the next blank; in that case clicking it
         # produces no image difference, so accept a visible blue focus outline.
@@ -234,10 +254,10 @@ class Desktop:
         edge=np.concatenate((blue[:6,:].ravel(),blue[-6:,:].ravel(),blue[:,:6].ravel(),blue[:,-6:].ravel()))
         focused=bool(np.mean(edge)>.10)
         if before.shape != after.shape or (np.mean(np.abs(before - after)) < .25 and not focused):
-            raise PauseRequired("无法确认填空框已获得焦点，已停止输入。请点选该框后重新预览。")
+            raise InputFocusUnclear("无法确认填空框已获得焦点，未输入文字；请重新定位实际输入框，不要点击上方标签。")
         self.check()
         self.gui.hotkey("ctrl", "a")
-        self.wait(.1)
+        self.wait(.03 if fast else .1)
         for offset in range(0, len(text), 12):
             self.check()
             events = unicode_events(text[offset:offset+12])
@@ -246,7 +266,7 @@ class Desktop:
                 raise PauseRequired("Windows 未完成文字输入，请检查浏览器是否以管理员身份运行。")
         self.check()
         self.gui.press("tab")
-        self.wait(.4)
+        self.wait(.08 if fast else .4)
 
 
 def emergency_monitor(stop: threading.Event, shutdown: threading.Event, notify=None):

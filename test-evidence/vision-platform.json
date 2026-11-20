@@ -1,0 +1,12 @@
+{
+  "inventory_items": 57,
+  "previously_completed": 56,
+  "pending_videos": 1,
+  "mute_verified": true,
+  "resume_position_before_seconds": 290,
+  "resume_position_observed_seconds": 294,
+  "stopped_at_login": true,
+  "new_video_completions_verified": 0,
+  "new_popup_returns_verified": 0,
+  "new_chapter_submissions_verified": 0
+}

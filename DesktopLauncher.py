@@ -7,7 +7,13 @@ if __name__ == "__main__":
     parser.add_argument('--selftest-course',action='store_true')
     parser.add_argument('--report-dir',default='course-test-results')
     parser.add_argument('--resume-test',action='store_true')
+    parser.add_argument('--selftest-vision',action='store_true')
+    parser.add_argument('--online-vision-test',action='store_true')
+    parser.add_argument('--capture-test-samples',action='store_true')
     args=parser.parse_args()
+    if args.selftest_vision:
+        from desktop_app.vision_selftest import main
+        raise SystemExit(main(args.report_dir,args.resume_test,args.online_vision_test,args.capture_test_samples))
     if args.selftest_course:
         from desktop_app.course_selftest import main
         raise SystemExit(main(args.report_dir,args.resume_test))

@@ -19,6 +19,8 @@ from .ai import OnlineAI,DeferredOnlineAI
 from .runner import Runner
 from .course import CourseRunner
 from .connection import probe_connection
+from .vision_ai import VisionAI
+from .vision_control import VisionCourseRunner
 
 
 REGIONS = {"章节题目区域": "question", "视频弹题区域": "popup", "视频画面及控制条": "player",
@@ -114,6 +116,7 @@ class App:
         self.key_text = tk.StringVar()
         self.mode_text=tk.StringVar(value='仅答题' if self.profile.mode=='quiz' else '看课＋答题（整门课程）')
         self.mute_text=tk.BooleanVar(value=self.profile.auto_mute)
+        self.control_text=tk.StringVar(value='AI 看图（自动定位）' if self.profile.control_mode=='vision' else '本地 OCR（旧版）')
         self.ai_status=tk.StringVar(value='尚未验证连接。填写 Key 后点击“测试连接”。')
         self.ai_test_running=False
         self.ai_test_id=0
@@ -124,7 +127,7 @@ class App:
         except Exception:
             pass
         self.region_name = tk.StringVar(value=next(iter(REGIONS)))
-        self.root.title("智慧树桌面助手 · Autovisor Desktop 0.2.1 Beta2")
+        self.root.title("智慧树桌面助手 · Autovisor Desktop 0.3.0 Beta1")
         self.root.geometry(f"1120x{min(1080,self.root.winfo_screenheight()-120)}")
         self.root.minsize(850, 680)
         self.root.configure(bg="#f3f5f8")
@@ -169,6 +172,10 @@ class App:
         chooser=ttk.Combobox(modes,textvariable=self.mode_text,values=['看课＋答题（整门课程）','仅答题'],state='readonly',font=('Microsoft YaHei UI',11),width=28)
         chooser.pack(side='left',padx=16)
         chooser.bind('<<ComboboxSelected>>',lambda e:self.start_button.configure(text='开始自动答题' if self.mode_text.get()=='仅答题' else '开始看课＋答题'))
+        backend=ttk.Frame(tab);backend.pack(fill='x',pady=(0,12))
+        ttk.Label(backend,text='控制方式').pack(side='left')
+        ttk.Combobox(backend,textvariable=self.control_text,values=['AI 看图（自动定位）','本地 OCR（旧版）'],state='readonly',width=28,font=('Microsoft YaHei UI',11)).pack(side='left',padx=16)
+        ttk.Label(backend,text='看图模式只需绑定课程窗口，无需先框选四区。',foreground='#475569').pack(side='left')
         row = ttk.Frame(tab)
         row.pack(fill="x")
         ttk.Label(row, text="课程 / 作业名称").pack(side="left")
@@ -188,7 +195,7 @@ class App:
         ttk.Button(row, text="继续", command=self.resume).pack(side="left")
         ttk.Button(row, text="停止", command=self.stop.set).pack(side="left", padx=8)
         ttk.Button(row, text="离线演示", command=self.demo).pack(side="right")
-        ttk.Checkbutton(tab,text='自动静音课程标签页（默认开启，已静音时不会反向开启声音）',variable=self.mute_text).pack(anchor='w',pady=(0,12))
+        ttk.Checkbutton(tab,text='自动静音（默认开启，已静音时不会反向开启声音）',variable=self.mute_text).pack(anchor='w',pady=(0,12))
         ttk.Label(tab, text="当前题目与答案", font=("Microsoft YaHei UI", 12, "bold")).pack(anchor="w")
         self.answer_text = scrolledtext.ScrolledText(tab, height=7, wrap="word", font=("Microsoft YaHei UI", 11), relief="flat", bg="#f1f5f9", fg="#172b4d", padx=12, pady=10)
         self.answer_text.pack(fill="both", expand=True, pady=(8,16))
@@ -197,10 +204,12 @@ class App:
         self.logs = scrolledtext.ScrolledText(tab, height=6, wrap="word", font=("Microsoft YaHei UI", 10), relief="flat", bg="#f8fafc", fg="#334155", padx=12, pady=8)
         self.logs.pack(fill="both", expand=True, pady=(8,0))
         self.logs.configure(state="disabled")
+        self.vision_stats=tk.StringVar(value='AI 看图：尚未请求')
+        ttk.Label(tab,textvariable=self.vision_stats,foreground='#475569',wraplength=850).pack(anchor='w',pady=(8,0))
 
     def build_calibration(self):
         tab = self.cal_tab
-        ttk.Label(tab, text="先绑定窗口，再分别框选需要自动操作的区域。", wraplength=800).pack(anchor="w")
+        ttk.Label(tab, text="AI 看图会自动定位；本页框选可用于人工修正或旧版 OCR 模式。", wraplength=800).pack(anchor="w")
         ttk.Label(tab, text="整课模式需要视频、目录、视频弹题和章节题目四个区域。题目需包含题型、题号和全部输入控件。\n目录会自动展开。点击校准后有 3 秒切回课程窗口；拖动框选后按 Enter 保存。", foreground="#475569", wraplength=800).pack(anchor="w", pady=12)
         row = ttk.Frame(tab)
         row.pack(fill="x", pady=16)
@@ -208,6 +217,7 @@ class App:
         ttk.Button(row, text="框选区域", command=self.calibrate).pack(side="left", padx=8)
         ttk.Button(row, text="识别预览", command=self.preview).pack(side="left")
         ttk.Button(row, text="标注填空", command=self.calibrate_blanks).pack(side="left", padx=8)
+        ttk.Button(tab,text='恢复 AI 自动定位',command=self.reset_vision_regions).pack(anchor='w',pady=4)
         self.regions_text = tk.StringVar()
         ttk.Label(tab, textvariable=self.regions_text, justify="left", foreground="#334155").pack(anchor="w", pady=12)
         ttk.Separator(tab).pack(fill="x", pady=12)
@@ -224,7 +234,7 @@ class App:
             entry = ttk.Entry(tab, textvariable=var, show="•" if secret else "",font=('Microsoft YaHei UI',11))
             entry.pack(fill="x")
             ttk.Label(tab, text=hint, foreground="#475569", wraplength=800).pack(anchor="w", pady=(5,4))
-        ttk.Label(tab, text="测试会发送一道简单题目，只验证当前输入。使用前请点“保存配置”；仅保存 Key 不代表连接已经验证。", wraplength=800).pack(anchor="w", pady=12)
+        ttk.Label(tab, text="测试只验证当前输入；AI 看图模式还会验证图片识题与控件位置。使用前请点“保存配置”。课程运行时会发送绑定窗口截图。", wraplength=800).pack(anchor="w", pady=12)
         actions=ttk.Frame(tab);actions.pack(fill='x',pady=(4,12))
         ttk.Button(actions,text='保存配置',command=self.save).pack(side='left')
         self.ai_test_button=ttk.Button(actions,text='测试连接',command=self.test_ai,style='Accent.TButton')
@@ -235,35 +245,40 @@ class App:
         self.ai_progress.pack(fill='x',pady=(0,10))
         self.ai_status_label=ttk.Label(tab,textvariable=self.ai_status,foreground='#334155',wraplength=800,font=('Microsoft YaHei UI',11,'bold'))
         self.ai_status_label.pack(anchor='w',fill='x')
-        for variable in (self.base_text,self.model_text,self.key_text):
+        for variable in (self.base_text,self.model_text,self.key_text,self.control_text):
             variable.trace_add('write',self.ai_config_changed)
 
     def build_help(self):
         text = """首次使用
-1. 在浏览器里手动登录智慧树，打开当前课程，缩放设为 100%。
-2. 运行页刷新并绑定正确的 Edge / Chrome 窗口，填写课程或作业名称。
-3. 整课模式校准视频、目录、视频弹题和章节题目四个区域；视频弹题可框选整个视频内容区。
-4. “识别预览”检查题型、题号、总题数、选项和填空框数量。识别不出填空框时使用“标注填空”。
-5. 配置在线 AI，验证接口后点“开始看课＋答题”。程序会尝试切到课程窗口。
+1. 手动登录智慧树，Edge 放在主屏幕，缩放 100%。
+2. 填写真实课程名称，刷新并绑定课程窗口。
+3. 默认 AI 看图自动定位，无需框选四区。
+4. AI 设置填写自己的 Key，测试图片接口成功后保存。
+5. 点开始看课＋答题，保持课程窗口在前台。
 
-运行行为
-整课模式会扫描并展开目录，正常播放未完成课时，处理视频弹题，再完成章节作业并返回课程。
-视频结束后还会核对当前课时的完成标记，最后重新扫描目录确认视频和章测全部完成。
-章节作业首次从第 1 题开始，程序逐题填写与复核，全部完成后自动提交并确认。
-保留本地记录可从中断题恢复；提交状态不明确时不会自动重交。
-填空支持普通文本框。窗口尺寸变化、页面验证、未知控件或识别不完整时暂停。
-需要窗口始终可见；仅支持主屏幕。正式考试、图片作答和公式编辑器不在本版适配范围。
+看图模式
+DeepSeek 直接识别窗口截图，判断目录、声音、播放状态、弹题和章节作业。
+同一稳定题面最多批量执行四个选项或填空，随后重新看图复核。
+滚动、切页、提交单独处理；目标变化时丢弃旧动作，稳定播放低频复核。
+本地保留进度，交卷状态不明确时不会重复提交。
+
+暂停与修正
+暂停后可在区域校准页修正 AI 定位，也可恢复自动定位。
+切到本地 OCR（旧版）可沿用四区校准路线。
+停止、失焦、验证提示和不可靠页面都会阻止继续点击。
+Ctrl+Alt+Shift+F12 或鼠标移至主屏幕角落可紧急停止。
 
 离线演示
-整课模式点击“离线演示”，会自动运行两章四节视频、弹题和两份章节作业，无需密钥和手动校准。
-演示采用本地计时与固定答案，不连接智慧树，不调用在线 AI。仅答题模式保留原来的四题演示。
+固定演示状态验证本地执行和恢复，不调用在线 AI，不代表真实准确率。
+真实图片测试及平台验收状态见包内 TEST-REPORT.md。
 
-状态与数据
-配置、运行记录和日志在 %LOCALAPPDATA%\\AutovisorDesktop。
-程序不读取浏览器 Cookie，不使用扩展、网页脚本或浏览器调试端口。
-AI 可能答错；程序不保证免检测。真实课程适配和正确率需分别验证。
-
-来源：CXRunfree/Autovisor（MIT）桌面视觉衍生版；原作者版权与许可见 LICENSE。
+数据与范围
+看图会发送绑定课程窗口截图、题干和任务上下文。
+Key 存 Windows 凭据管理器；配置与学习记录在本机 AutovisorDesktop 数据目录。
+原始截图默认不保存；显式测试采样时才写本地文件，不进入公开包。
+不读取浏览器 Cookie，不使用扩展、DOM 或浏览器调试端口。
+只适配传统共享课和单题作业；正式考试、图片、公式、直播、讨论未适配。
+AI 可能误判或答错，不保证免检测。MIT 版权与许可证见 LICENSE。
 """
         box = scrolledtext.ScrolledText(self.help_tab, wrap="word", font=("Microsoft YaHei UI", 11), relief="flat", padx=12, pady=10)
         box.pack(fill="both", expand=True)
@@ -306,6 +321,10 @@ AI 可能答错；程序不保证免检测。真实课程适配和正确率需�
                     value()
                 elif kind == 'ai_test_result':
                     self.finish_ai_test(*value)
+                elif kind=='vision_status':
+                    elapsed='' if value.get('elapsed') is None else f" · 最近 {value['elapsed']:.2f} 秒"
+                    self.status.set('AI 看图 · '+value['message'])
+                    self.vision_stats.set(f"场景 {value['scene']} · 请求 {value['calls']} 次 · 已用 {value.get('tokens',0)} tokens"+elapsed)
         except queue.Empty:
             pass
         if not self.shutdown.is_set():
@@ -329,6 +348,7 @@ AI 可能答错；程序不保证免检测。真实课程适配和正确率需�
         rect = client_rect(self.target.hwnd)
         if (self.profile.width, self.profile.height) != (rect.w, rect.h):
             self.profile.regions.clear()
+            self.profile.vision_region_overrides.clear()
             self.profile.blank_overrides.clear()
         self.profile.width, self.profile.height = rect.w, rect.h
         self.status.set("已绑定 · " + self.target.title)
@@ -344,6 +364,7 @@ AI 可能答错；程序不保证免检测。真实课程适配和正确率需�
         self.profile.model = self.model_text.get().strip()
         self.profile.mode='quiz' if self.mode_text.get()=='仅答题' else 'course'
         self.profile.auto_mute=self.mute_text.get()
+        self.profile.control_mode='vision' if self.control_text.get().startswith('AI') else 'legacy'
         try:
             self.credentials.set(self.key_text.get().strip())
             save_profile(self.data, self.profile)
@@ -358,10 +379,17 @@ AI 可能答错；程序不保证免检测。真实课程适配和正确率需�
     def refresh_regions(self):
         if hasattr(self, "regions_text"):
             values = [f"窗口：{self.profile.width} × {self.profile.height}"]
+            values.append('AI 区域：'+('人工修正 '+str(len(self.profile.vision_region_overrides))+' 项' if self.profile.vision_region_overrides else '自动定位，无需校准'))
             for label, key in REGIONS.items():
                 r = self.profile.regions.get(key)
                 values.append(f"{label}：" + (f"已校准 ({r.x}, {r.y}, {r.w}, {r.h})" if r else "未校准"))
             self.regions_text.set("\n".join(values))
+
+    def reset_vision_regions(self):
+        if self.worker and self.worker.is_alive() and not self.pause.is_set():
+            self.status.set('请先暂停，再恢复 AI 自动定位。');return
+        self.profile.vision_region_overrides.clear();save_profile(self.data,self.profile)
+        self.refresh_regions();self.status.set('已恢复 AI 自动定位。继续运行时会重新看图。')
 
     def delayed_capture(self, callback):
         if not self.target:
@@ -387,6 +415,7 @@ AI 可能答错；程序不保证免检测。真实课程适配和正确率需�
         def received(image, origin):
             def selected(rects):
                 self.profile.regions[name] = rects[0]
+                if self.control_text.get().startswith('AI'):self.profile.vision_region_overrides[name]=rects[0]
                 save_profile(self.data, self.profile)
                 self.refresh_regions()
                 self.status.set("区域已保存，请进行识别预览。")
@@ -412,12 +441,21 @@ AI 可能答错；程序不保证免检测。真实课程适配和正确率需�
         if self.busy:
             self.status.set('正在识别或测试接口，请等待当前操作完成。')
             return
+        visual=self.control_text.get().startswith('AI')
+        settings=(self.base_text.get().strip(),self.model_text.get().strip(),self.key_text.get().strip())
         def received(image, origin):
             self.root.deiconify()
             self.status.set("正在识别，首次启动可能需要下载模型……")
             self.busy=True
             def work():
                 try:
+                    if visual:
+                        ai=VisionAI(*settings,threading.Event())
+                        try:observation=ai.observe(image,{'goal':'只读预览：识别当前课程、场景、区域和题目；actions必须为空。','course_name':self.profile.task_name,'preview':True})
+                        finally:ai.close()
+                        self.emit('vision_status',{'message':'只读预览：'+observation.message,'scene':observation.scene,'calls':1,'elapsed':observation.elapsed,'tokens':observation.usage.get('total_tokens',0)})
+                        self.emit('log','AI 已识别区域：'+'、'.join(observation.regions)+'；预览未执行任何点击。')
+                        return
                     view = self.vision.inspect(image, self.profile)
                     self.emit("view", view)
                     if view.blocked:
@@ -444,14 +482,26 @@ AI 可能答错；程序不保证免检测。真实课程适配和正确率需�
         if self.worker and self.worker.is_alive():
             self.status.set("当前任务仍在运行；暂停后可点继续。")
             return
-        if not self.target or not self.profile.regions:
-            messagebox.showinfo("先完成准备", "请先绑定窗口并校准题目或视频区域。")
+        visual=self.control_text.get().startswith('AI')
+        if not self.target or not visual and not self.profile.regions:
+            messagebox.showinfo("先完成准备", "请先绑定课程窗口；旧版 OCR 还需校准区域。")
             return
         if not self.save(False):
             return
         self.stop.clear()
         self.pause.clear()
         try:
+            if visual:
+                if demo_target(self.target):raise PauseRequired('看图演示请使用“离线演示”按钮，它会自动绑定演示窗口。')
+                if self.profile.task_name in {'当前课程','离线演示'}:raise PauseRequired('请填写页面显示的课程或作业名称。')
+                ai=VisionAI(self.profile.base_url,self.profile.model,self.key_text.get().strip(),self.stop)
+                run_profile=Profile.from_dict(self.profile.to_dict())
+                desktop=Desktop(self.target,run_profile,self.stop,self.pause)
+                self.runner=VisionCourseRunner(desktop,ai,self.journal,run_profile,self.stop,self.pause,self.emit)
+                self.worker=threading.Thread(target=self.runner.run,daemon=True);self.worker.start()
+                self.status.set('AI 看图准备开始 · 请在 5 秒内切回课程窗口')
+                desktop.activate()
+                return
             if demo_target(self.target):
                 from .demo import DemoAI
                 ai = DemoAI()
@@ -478,7 +528,8 @@ AI 可能答错；程序不保证免检测。真实课程适配和正确率需�
         if self.worker and self.worker.is_alive():
             if not self.demo_running:
                 self.runner.profile.regions=dict(self.profile.regions)
-                self.runner.document=None
+                self.runner.profile.vision_region_overrides=dict(self.profile.vision_region_overrides)
+                if not isinstance(self.runner,VisionCourseRunner):self.runner.document=None
                 if isinstance(self.runner,CourseRunner):
                     self.runner.scanner.region=self.runner.profile.regions['catalog']
             self.pause.clear()
@@ -499,7 +550,7 @@ AI 可能答错；程序不保证免检测。真实课程适配和正确率需�
             self.status.set("本地记录已清除。")
 
     def ai_signature(self):
-        return fingerprint(self.base_text.get().strip()+'\0'+self.model_text.get().strip()+'\0'+self.key_text.get().strip())
+        return fingerprint(self.base_text.get().strip()+'\0'+self.model_text.get().strip()+'\0'+self.key_text.get().strip()+'\0'+self.control_text.get())
 
     def ai_config_changed(self,*args):
         self.ai_verified_signature=None
@@ -512,6 +563,7 @@ AI 可能答错；程序不保证免检测。真实课程适配和正确率需�
             self.ai_status.set('请先停止看课任务，或等待当前识别结束，再测试连接。')
             return
         address,model,key=self.base_text.get().strip(),self.model_text.get().strip(),self.key_text.get().strip()
+        visual=self.control_text.get().startswith('AI')
         if not key or not model:
             self.ai_status.set('尚未开始测试：请填写 API Key 和模型名称。')
             self.ai_status_label.configure(foreground='#b91c1c')
@@ -528,7 +580,7 @@ AI 可能答错；程序不保证免检测。真实课程适配和正确率需�
         self.ai_status.set('正在测试连接 · 0 秒；结果会显示在这里。')
         self.root.after(500,lambda:self.tick_ai_test(token))
         def work():
-            result=probe_connection(address,model,key,stop)
+            result=probe_connection(address,model,key,stop,visual)
             self.emit('ai_test_result',(token,result))
         threading.Thread(target=work,daemon=True).start()
 
@@ -580,7 +632,10 @@ AI 可能答错；程序不保证免检测。真实课程适配和正确率需�
             self.stop.clear();self.pause.clear();self.demo_running=True
             journal=Journal(self.data/'demo-course.sqlite3');journal.reset()
             desktop=Desktop(Target(hwnd,CourseDemo.title,process_name(hwnd)),profile,self.stop,self.pause)
-            self.runner=CourseRunner(desktop,self.vision,CourseDemoAI(),journal,profile,self.stop,self.pause,self.emit)
+            if self.control_text.get().startswith('AI'):
+                from .vision_demo import VisionDemoAI
+                self.runner=VisionCourseRunner(desktop,VisionDemoAI(self.demo_instance),journal,profile,self.stop,self.pause,self.emit)
+            else:self.runner=CourseRunner(desktop,self.vision,CourseDemoAI(),journal,profile,self.stop,self.pause,self.emit)
             def work():
                 try:self.runner.run()
                 finally:

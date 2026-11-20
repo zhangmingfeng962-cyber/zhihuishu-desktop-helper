@@ -30,6 +30,8 @@ class CourseDemo:
         self.video_starts={code:0 for code in ('1.1','1.2','2.1','2.2')}
         self.popup_submits={code:0 for code in self.video_starts}
         self.popup_answers={};self.quiz_submits={'1':0,'2':0}
+        self.quiz_results={}
+        self.muted=False;self.mute_changes=0
         self.page=tk.Canvas(root,bg='white',highlightthickness=0)
         self.page.place(x=20,y=20,width=980,height=1020)
         self.catalog=tk.Canvas(root,bg='white',highlightthickness=0,yscrollincrement=20)
@@ -78,6 +80,8 @@ class CourseDemo:
                 self.text(25,675,'播放结束',14)
             else:
                 self.button(25,665,'暂停' if self.playing else '播放',self.toggle_play,110)
+            self.button(700,665,'已静音' if self.muted else '静音',self.mute,200)
+            self.text(700,630,'声音：已静音' if self.muted else '声音：开启',13)
             if self.popup:
                 self.page.create_rectangle(145,130,925,705,fill='white',outline='#94a3b8',width=2)
                 self.draw_question(self.popup,True)
@@ -124,6 +128,7 @@ class CourseDemo:
             labels=['正确','错误'] if kind=='judge' else ['1','2','3']
             for i,value in enumerate(labels):
                 label=chr(65+i);yy=y+150+i*65;tag='option_'+label
+                self.page.create_rectangle(x-3,yy-5,x+700,yy+42,fill='white',outline='',tags=tag)
                 draw=self.page.create_rectangle if kind=='multiple' else self.page.create_oval
                 draw(x,yy,x+24,yy+24,fill='#2563eb' if label in self.selected else 'white',outline='#64748b',width=2,tags=tag)
                 self.page.create_text(x+48,yy+12,text=label+'. '+value,anchor='w',font=('Microsoft YaHei UI',16),fill='#172b4d',tags=tag)
@@ -159,6 +164,7 @@ class CourseDemo:
         self.quiz_answers[self.quiz_index]=values;self.stage='confirm';self.draw_page()
 
     def submit_quiz(self):
+        self.quiz_results[self.quiz_chapter]={str(k):list(v) for k,v in self.quiz_answers.items()}
         self.quiz_submits[self.quiz_chapter]+=1
         self.done.add('q'+self.quiz_chapter)
         self.stage='result';self.draw_page();self.draw_catalog()
@@ -169,6 +175,10 @@ class CourseDemo:
     def toggle_play(self):
         if self.current and self.position<self.durations[self.current]:
             self.playing=not self.playing;self.draw_page()
+
+    def mute(self):
+        if not self.muted:self.mute_changes+=1
+        self.muted=True;self.draw_page()
 
     def tick(self):
         if self.stage=='course' and self.playing and self.current and not self.popup:
@@ -206,6 +216,7 @@ class CourseDemo:
         self.catalog.delete('all');y=12
         for ch,name in (('1','第一章'),('2','第二章')):
             tag='heading'+ch
+            self.catalog.create_rectangle(0,y,440,y+48,fill='white',outline='',tags=tag)
             self.catalog.create_text(12,y+18,text=name,anchor='w',font=('Microsoft YaHei UI',14,'bold'),fill='#172b4d',tags=tag)
             pts=(108,y+13,120,y+13,114,y+23) if self.expanded[ch] else (108,y+10,108,y+24,119,y+17)
             self.catalog.create_polygon(*pts,fill='#475569',tags=tag)
@@ -214,14 +225,14 @@ class CourseDemo:
             if self.expanded[ch]:
                 for n in (1,2):
                     code=ch+'.'+str(n);tag='lesson'+code
-                    if self.current==code:
-                        self.catalog.create_rectangle(0,y,440,y+88,fill='#e9f2ff',outline='',tags=tag)
+                    self.catalog.create_rectangle(0,y,440,y+88,fill='#e9f2ff' if self.current==code else 'white',outline='',tags=tag)
                     self.catalog.create_text(18,y+18,text=code+' 同名课时',anchor='w',font=('Microsoft YaHei UI',14),fill='#172b4d',tags=tag)
                     self.catalog.create_text(38,y+52,text='00:'+str(self.durations[code]).zfill(2),anchor='w',font=('Microsoft YaHei UI',13),fill='#475569',tags=tag)
                     self.draw_done(code,y+31)
                     self.catalog.tag_bind(tag,'<Button-1>',lambda e,code=code:self.select_video(code))
                     y+=98
                 tag='quiz'+ch
+                self.catalog.create_rectangle(0,y,440,y+66,fill='white',outline='',tags=tag)
                 self.catalog.create_text(18,y+24,text='章节测试',anchor='w',font=('Microsoft YaHei UI',14),fill='#172b4d',tags=tag)
                 self.draw_done('q'+ch,y+24)
                 self.catalog.tag_bind(tag,'<Button-1>',lambda e,ch=ch:self.select_quiz(ch))
@@ -233,6 +244,7 @@ class CourseDemo:
         if key in self.done:
             self.catalog.create_oval(394,y-12,418,y+12,fill='#3688f7',outline='')
             self.catalog.create_line(400,y,405,y+5,414,y-5,fill='white',width=3)
+        else:self.catalog.create_oval(394,y-12,418,y+12,fill='white',outline='#94a3b8',width=2)
 
     def wheel(self,event):
         x=self.root.winfo_pointerx()-self.root.winfo_rootx();y=self.root.winfo_pointery()-self.root.winfo_rooty()
@@ -245,4 +257,6 @@ class CourseDemo:
     def metrics(self):
         expected={'1.1':['B'],'1.2':['A','B'],'2.1':['A'],'2.2':['北京','2']}
         return {'video_starts':self.video_starts,'popup_submits':self.popup_submits,'quiz_submits':self.quiz_submits,
-                'popup_answers':self.popup_answers,'done':sorted(self.done),'correct_popups':self.popup_answers==expected}
+                'popup_answers':self.popup_answers,'done':sorted(self.done),'correct_popups':self.popup_answers==expected,
+                'mute_changes':self.mute_changes,
+                'quiz_answers':self.quiz_results,'correct_quizzes':self.quiz_results=={ch:{'1':['A'],'2':['北京','2']} for ch in ('1','2')}}

@@ -1,0 +1,15 @@
+{
+  "method": "Same recorded local fixture images; legacy OCR plus cached text answer requests when enabled versus observed image API latency. No mouse execution or video time included.",
+  "sample_count": 20,
+  "online_text": true,
+  "legacy_errors": 0,
+  "legacy_decision_seconds": {
+    "median": 26.023,
+    "p95": 26.179
+  },
+  "vision_request_seconds": {
+    "median": 2.078,
+    "p95": 2.559
+  },
+  "comparable_count": 20
+}

@@ -16,6 +16,18 @@ class Stopped(RuntimeError):
     pass
 
 
+class FrameChanged(PauseRequired):
+    """A target changed before input was sent; visual mode can reobserve."""
+
+
+class InputFocusUnclear(PauseRequired):
+    """No typing was sent because a field did not confirm focus."""
+
+
+class TargetUnclear(PauseRequired):
+    """A visual target is ambiguous before a click is sent."""
+
+
 def normalized(text: str) -> str:
     return re.sub(r"\s+", "", unicodedata.normalize("NFKC", text))
 
@@ -175,6 +187,8 @@ class Profile:
     model: str = "deepseek-flash"
     mode: str = 'course'
     auto_mute: bool = True
+    control_mode: str = 'vision'
+    vision_region_overrides: dict[str,Rect] = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -184,4 +198,5 @@ class Profile:
         data = dict(data)
         data["regions"] = {k: Rect(**v) for k, v in data.get("regions", {}).items()}
         data["blank_overrides"] = {k: [Rect(**r) for r in rows] for k, rows in data.get("blank_overrides", {}).items()}
+        data['vision_region_overrides']={k:Rect(**v) for k,v in data.get('vision_region_overrides',{}).items()}
         return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})

@@ -1,0 +1,74 @@
+{
+  "success": true,
+  "version": "0.3.0b1",
+  "control_mode": "vision",
+  "provider": "deepseek-live",
+  "resume_exercised": true,
+  "video_starts": {
+    "1.1": 1,
+    "1.2": 1,
+    "2.1": 1,
+    "2.2": 1
+  },
+  "popup_submits": {
+    "1.1": 1,
+    "1.2": 1,
+    "2.1": 1,
+    "2.2": 1
+  },
+  "quiz_submits": {
+    "1": 1,
+    "2": 1
+  },
+  "correct_popups": true,
+  "correct_quizzes": true,
+  "mute_changes": 1,
+  "calls": 76,
+  "median_request_seconds": 2.562,
+  "p95_request_seconds": 3.3939,
+  "wall_seconds": 395.44,
+  "tasks": [
+    {
+      "code": "1.1",
+      "chapter": "1",
+      "kind": "video",
+      "status": "done",
+      "source": "session"
+    },
+    {
+      "code": "1.2",
+      "chapter": "1",
+      "kind": "video",
+      "status": "done",
+      "source": "session"
+    },
+    {
+      "code": "",
+      "chapter": "1",
+      "kind": "quiz",
+      "status": "done",
+      "source": "session"
+    },
+    {
+      "code": "2.1",
+      "chapter": "2",
+      "kind": "video",
+      "status": "done",
+      "source": "session"
+    },
+    {
+      "code": "2.2",
+      "chapter": "2",
+      "kind": "video",
+      "status": "done",
+      "source": "session"
+    },
+    {
+      "code": "",
+      "chapter": "2",
+      "kind": "quiz",
+      "status": "done",
+      "source": "session"
+    }
+  ]
+}
